@@ -1,0 +1,13 @@
+{application, stocknewsparser,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {modules, [stocknewsparser_server]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { stocknewsparser_app, []}},
+  {env, []}
+ ]}.

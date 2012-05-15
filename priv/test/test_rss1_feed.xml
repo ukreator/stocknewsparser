@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/">
+	<channel rdf:about="http://www.example.com/rss/testcase.rdf">
+		<title>Test Case Feed</title>
+		<link>http://www.example.com/rss/testcase.html</link>
+		<description>
+			This is one of several test feeds, all of which should appear to be
+			identical to any parser. Oh and I'm going to pretend to use a
+			TradeMark™ just to catch bugs with non-ASCII characters
+		</description>
+		<image rdf:resource="http://www.example.com/rss/testcase.gif"/>
+		<items>
+			<rdf:Seq>
+				<rdf:li rdf:resource="http://www.example.com/rss/testcase/item1.html"/>
+				<rdf:li rdf:resource="http://www.example.com/rss/testcase/item2.html"/>
+			</rdf:Seq>
+		</items>
+		<textinput rdf:resource="http://www.example.com/rss/testcase/search.asp"/>
+	</channel>
+	<image rdf:about="http://www.example.com/rss/testcase.gif">
+		<title>Test Image</title>
+		<link>http://www.example.com/rss/testcase.html</link>
+		<url>http://www.example.com/rss/testcase.gif</url>
+	</image>
+	<item rdf:about="http://www.example.com/rss/testcase/item1.html">
+		<title>Test Case Feed Item 1</title>
+		<link>http://www.example.com/rss/testcase/item1.html</link>
+		<description>
+			This is the first item referred to in a test RSS1.0 feed. It doesn't
+			actually exist and following the link will 404.
+		</description>
+	</item>
+	<item rdf:about="http://www.example.com/rss/testcase/item2.html">
+		<title>Test Case Feed Item 2</title>
+		<link>http://www.example.com/rss/testcase/item2.html</link>
+		<description>
+			This is the second item referred to in a test RSS1.0 feed. It doesn't
+			actually exist and following the link will 404.
+		</description>
+	</item>
+	<textinput rdf:about="http://www.example.com/rss/testcase/search.asp">
+		<title>Does Nothing!</title>
+		<description>A test form that does nothing (except 404).</description>
+		<name>nada</name>
+		<link>http://www.example.com/rss/testcase/search.asp</link>
+	</textinput>
+</rdf:RDF>

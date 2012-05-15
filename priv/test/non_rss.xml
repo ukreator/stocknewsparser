@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<recipe name="хлеб" preptime="5" cooktime="180">
+  <title>Простой хлеб</title>
+  <instructions>
+   <step>Закрыть тканью и оставить на один час в тёплом помещении.</step>
+  </instructions>
+</recipe>
