@@ -1,5 +1,8 @@
 # Erlang-specific files
 *.beam
+*.o
+.eunit
+deps
 
 # Packages #
 ############
