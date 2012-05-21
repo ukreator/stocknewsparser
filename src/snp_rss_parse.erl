@@ -1,7 +1,7 @@
 %% Author: dmitry
 %% Created: May 11, 2012
 %% Description: TODO: Add description to rss_parse
--module(rss_parse).
+-module(snp_rss_parse).
 
 %%
 %% Include files

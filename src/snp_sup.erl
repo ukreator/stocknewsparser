@@ -1,9 +1,9 @@
 
--module(stocknewsparser_sup).
+-module(snp_sup).
 
 -behaviour(supervisor).
 
--include("logging.hrl").
+-include("snp_logging.hrl").
 
 %% API
 -export([start_link/0]).
@@ -13,6 +13,9 @@
 
 %% Helper macro for declaring children of supervisor
 -define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+
+%% TODO: load from the config file
+-define(RSS_FEEDS, ["http://finance.yahoo.com/news/category-economy-govt-and-policy/rss"]).
 
 %% ===================================================================
 %% API functions
@@ -27,6 +30,6 @@ start_link() ->
 
 init([]) ->
 	?INFO("Starting stock news parser supervisor", []),
-    StockNewsServer = ?CHILD(stocknewsparser_server, worker),
-    {ok, { {one_for_one, 5, 10}, [StockNewsServer]} }.
+    RssDownloaderServer = ?CHILD(snp_rss_downloader_server, worker),
+    {ok, { {one_for_one, 5, 10}, [RssDownloaderServer]} }.
 

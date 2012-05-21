@@ -1,4 +1,4 @@
--module(stocknewsparser_app).
+-module(snp_app).
 
 -behaviour(application).
 
@@ -10,7 +10,7 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    stocknewsparser_sup:start_link().
+    snp_sup:start_link().
 
 stop(_State) ->
     ok.

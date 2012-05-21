@@ -2,12 +2,16 @@
  [
   {description, ""},
   {vsn, "1"},
-  {modules, [stocknewsparser_server]},
+  {modules, []},
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  sasl,
+                  crypto,
+                  inets,
+                  ssl
                  ]},
-  {mod, { stocknewsparser_app, []}},
+  {mod, { snp_app, []}},
   {env, []}
  ]}.

@@ -1,9 +1,10 @@
 %% Author: Dmitry Sobinov
 %% Created: May 11, 2012
 %% Description: TODO: Add description to rss_parse_tests
--module(rss_parse_tests).
+-module(snp_rss_parse_tests).
 
 % rebar-specific path to get test files when issuing 'rebar eunit'
+% TODO: try code:priv_dir() maybe
 -define(TestDirPath, "../priv/test").
 
 %%
@@ -33,10 +34,10 @@ is_rss2_feed_test_() ->
 	 setup,
 	 fun is_rss2_feed_start/0,
 	 fun ({Rss2Content, Rss1Content, NonRssXml}) -> [
-		?_assertNot(rss_parse:is_rss2_feed({test_not_a_doc, []})),
-	 	?_assert(rss_parse:is_rss2_feed(Rss2Content)),
-		?_assertNot(rss_parse:is_rss2_feed(Rss1Content)),
-		?_assertNot(rss_parse:is_rss2_feed(NonRssXml))
+		?_assertNot(snp_rss_parse:is_rss2_feed({test_not_a_doc, []})),
+	 	?_assert(snp_rss_parse:is_rss2_feed(Rss2Content)),
+		?_assertNot(snp_rss_parse:is_rss2_feed(Rss1Content)),
+		?_assertNot(snp_rss_parse:is_rss2_feed(NonRssXml))
 	 ] end}.
 
 
@@ -53,9 +54,9 @@ compare_feed_items_test_() ->
 	{setup,
 	 fun compare_feed_items_start/0,
 	 fun ({Item1, Item1GuidSame, Item1TitleSame, Item2}) -> [
-		?_assertEqual(rss_parse:compare_feed_items(Item1, Item1GuidSame), same),
-		?_assertEqual(rss_parse:compare_feed_items(Item1, Item1TitleSame), same),
-		?_assertEqual(rss_parse:compare_feed_items(Item1, Item2), different)
+		?_assertEqual(snp_rss_parse:compare_feed_items(Item1, Item1GuidSame), same),
+		?_assertEqual(snp_rss_parse:compare_feed_items(Item1, Item1TitleSame), same),
+		?_assertEqual(snp_rss_parse:compare_feed_items(Item1, Item2), different)
 	 ] end}.
 
 compare_feed_items_start() ->
