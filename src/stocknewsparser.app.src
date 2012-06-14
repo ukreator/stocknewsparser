@@ -1,8 +1,8 @@
 {application, stocknewsparser,
  [
-  {description, ""},
-  {vsn, "1"},
-  {modules, []},
+  {description, "RSS aggregator and parser of financial news"},
+  {vsn, "0.0.1"},
+  {modules, [snp_app, snp_rss_downloader_server, snp_rss_parse, snp_sup]},
   {registered, []},
   {applications, [
                   kernel,
