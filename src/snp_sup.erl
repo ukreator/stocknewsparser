@@ -16,12 +16,7 @@
 
 %% TODO: load all these settings from the config file
 
-%% List of RSS feeds we monitor
--define(RSS_FEEDS, ["http://finance.yahoo.com/news/category-economy-govt-and-policy/rss",
-					"http://finance.yahoo.com/news/category-earnings/rss"]).
 
-% how often RSS should be retrieved from a remote site, in seconds
--define(RSS_FETCH_INTERVAL, 60).
 
 %% ===================================================================
 %% API functions
@@ -40,10 +35,9 @@ start_child(Url, RepeatTime) ->
 init([]) ->
 	?INFO("Starting stock news parser supervisor", []),
     %RssDownloaderServer = ?CHILD(snp_rss_downloader_server, worker, []),
-	Children = [?CHILD(snp_rss_downloader_server, worker, [FeedUrl, ?RSS_FETCH_INTERVAL]) || 
-				FeedUrl <- ?RSS_FEEDS],
+	Children = ?CHILD(snp_rss_downloader_server, worker, []), 
 	RestartStrategy = {simple_one_for_one, 5, 10},
-    {ok, {RestartStrategy , Children}}.
+    {ok, {RestartStrategy , [Children]}}.
 
 
 
