@@ -19,12 +19,13 @@ start_link(Url, RepeatTime) ->
 create(Url, RepeatTime) ->
 	snp_sup:start_child(Url, RepeatTime).
 
+%% RepeatTime is passed in seconds
 init([Url, RepeatTime]) ->
-	?INFO("Starting RSS downloader worker", []),
+	?INFO("Starting RSS downloader worker for URL ~p", [Url]),
 	RandStartTime = random:uniform(RepeatTime),
-	erlang:send_after(RandStartTime, ?MODULE, rss_update),
+	erlang:send_after(RandStartTime * 1000, ?MODULE, rss_update),
     {ok, 
-	#state{url = Url, repeat_time = RepeatTime}}.
+	#state{url = Url, repeat_time = RepeatTime * 1000}}.
 
 
 %% callbacks

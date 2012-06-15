@@ -42,5 +42,5 @@ init() ->
 	ok.
 
 start_children() ->
-	lists:foreach(fun(Url) -> snp_sup:start_child(Url, ?RSS_FETCH_INTERVAL) end, ?RSS_FEEDS),
+	lists:foreach(fun(Url) -> snp_rss_downloader_server:create(Url, ?RSS_FETCH_INTERVAL) end, ?RSS_FEEDS),
 	ok.
