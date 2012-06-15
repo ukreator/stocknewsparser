@@ -22,7 +22,6 @@
 
 start(_StartType, _StartArgs) ->
 	?INFO("Starting stocknewsparser application", []),
-	init(),
     Res = snp_sup:start_link(),
 	case Res of
 		{ok, _Pid} -> start_children();
@@ -36,11 +35,13 @@ stop(_State) ->
 
 % helper functions
 
-init() ->
-	{A1, A2, A3} = now(),
-	random:seed(A1, A2, A3),
-	ok.
 
 start_children() ->
-	lists:foreach(fun(Url) -> snp_rss_downloader_server:create(Url, ?RSS_FETCH_INTERVAL) end, ?RSS_FEEDS),
+	lists:foreach(fun start_child/1, ?RSS_FEEDS),
 	ok.
+
+start_child(Url) ->
+	case snp_rss_downloader_server:create(Url, ?RSS_FETCH_INTERVAL) of
+		{error, Reason} -> ?ERROR("Failed to start child worker process ~p", [Reason]), ok;
+		_Other -> ok
+	end.
