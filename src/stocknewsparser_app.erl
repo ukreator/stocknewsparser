@@ -37,11 +37,16 @@ stop(_State) ->
 
 
 start_children() ->
-	lists:foreach(fun start_child/1, ?RSS_FEEDS),
+	% generate index for additional seeding
+	lists:foldl(
+	  fun(Url, Index) -> start_child(Url, Index),
+						 Index + 1
+						 end, 
+	  0, ?RSS_FEEDS),
 	ok.
 
-start_child(Url) ->
-	case snp_rss_downloader_server:create(Url, ?RSS_FETCH_INTERVAL) of
+start_child(Url, Index) ->
+	case snp_rss_downloader_server:create(Url, ?RSS_FETCH_INTERVAL, Index) of
 		{error, Reason} -> ?ERROR("Failed to start child worker process ~p", [Reason]), ok;
 		_Other -> ok
 	end.

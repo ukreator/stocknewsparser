@@ -3,7 +3,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/2, create/2]).
+-export([start_link/3, create/3]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
     terminate/2, code_change/3]).
@@ -13,16 +13,18 @@
 
 -record(state, {url, repeat_time}).
 
-start_link(Url, RepeatTime) ->
+start_link(Url, RepeatTime, Index) ->
     %gen_server:start_link({local, ?MODULE}, ?MODULE, [Url, RepeatTime], []).
-	gen_server:start_link(?MODULE, [Url, RepeatTime], []).
+	gen_server:start_link(?MODULE, [Url, RepeatTime, Index], []).
 
-create(Url, RepeatTime) ->
-	snp_sup:start_child(Url, RepeatTime).
+create(Url, RepeatTime, Index) ->
+	snp_sup:start_child(Url, RepeatTime, Index).
 
 %% RepeatTime is passed in seconds
-init([Url, RepeatTime]) ->
-	random:seed(erlang:now()),
+init([Url, RepeatTime, Index]) ->
+	CurTime = erlang:now(),
+	AdjustedSeed = setelement(2, CurTime, element(2, CurTime) + Index),
+	random:seed(AdjustedSeed),
 	RandStartTime = random:uniform(RepeatTime),
 	?INFO("Starting RSS downloader worker for URL ~p in time ~p", [Url, RandStartTime]),
 	erlang:send_after(RandStartTime * 1000, self(), rss_update),

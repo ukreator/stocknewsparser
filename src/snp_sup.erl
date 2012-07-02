@@ -6,7 +6,7 @@
 -include("snp_logging.hrl").
 
 %% API
--export([start_link/0, start_child/2]).
+-export([start_link/0, start_child/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -25,8 +25,8 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-start_child(Url, RepeatTime) ->
-	supervisor:start_child(?MODULE, [Url, RepeatTime]).
+start_child(Url, RepeatTime, Index) ->
+	supervisor:start_child(?MODULE, [Url, RepeatTime, Index]).
 
 %% ===================================================================
 %% Supervisor callbacks
