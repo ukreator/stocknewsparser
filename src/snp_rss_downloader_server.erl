@@ -18,10 +18,11 @@ start_link(Url, RepeatTime, Index, RiakcPid) ->
 	gen_server:start_link(?MODULE, [Url, RepeatTime, Index, RiakcPid], []).
 
 create(Url, RepeatTime, Index, RiakcPid) ->
-	snp_sup:start_child(Url, RepeatTime, Index, RiakcPid).
+	snp_rss_parse_sup:start_child(Url, RepeatTime, Index, RiakcPid).
 
 %% RepeatTime is passed in seconds
 init([Url, RepeatTime, Index, RiakcPid]) ->
+	?INFO("Starting RSS download server", []),
 	CurTime = erlang:now(),
 	AdjustedSeed = setelement(2, CurTime, element(2, CurTime) + Index),
 	random:seed(AdjustedSeed),
@@ -82,3 +83,7 @@ parse_rss(Body) ->
 	%  - search for tickers from the list in the body
 	%  - if ticker found, send article info to Riak DB
 	{ok, []}.
+
+download_article(Link) ->
+	% - download articles asynchronously and parse them (start one seperate process?)
+	ok.
