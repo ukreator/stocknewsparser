@@ -17,7 +17,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
--export([start_link/0]).
+-export([start_link/0, start_child/1]).
 
 %% --------------------------------------------------------------------
 %% Internal exports
@@ -30,7 +30,6 @@
 %% Macros
 %% --------------------------------------------------------------------
 -define(SERVER, ?MODULE).
-%-define(CHILD(I, Type, Args), {I, {I, start_link, Args}, permanent, 5000, Type, [I]}).
 
 %% --------------------------------------------------------------------
 %% Records
@@ -43,6 +42,8 @@
 start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
+start_child(Url) ->
+	supervisor:start_child(?MODULE, [Url]).
 
 %% ====================================================================
 %% Server functions

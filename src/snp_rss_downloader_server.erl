@@ -3,7 +3,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/4, create/4]).
+-export([start_link/3, create/3]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
     terminate/2, code_change/3]).
@@ -11,17 +11,16 @@
 -include("snp_logging.hrl").
 
 
--record(state, {url, repeat_time, riakc_pid}).
+-record(state, {url, repeat_time}).
 
-start_link(Url, RepeatTime, Index, RiakcPid) ->
-    %gen_server:start_link({local, ?MODULE}, ?MODULE, [Url, RepeatTime], []).
-	gen_server:start_link(?MODULE, [Url, RepeatTime, Index, RiakcPid], []).
+start_link(Url, RepeatTime, Index) ->
+	gen_server:start_link(?MODULE, [Url, RepeatTime, Index], []).
 
-create(Url, RepeatTime, Index, RiakcPid) ->
-	snp_rss_parse_sup:start_child(Url, RepeatTime, Index, RiakcPid).
+create(Url, RepeatTime, Index) ->
+	snp_rss_parse_sup:start_child(Url, RepeatTime, Index).
 
 %% RepeatTime is passed in seconds
-init([Url, RepeatTime, Index, RiakcPid]) ->
+init([Url, RepeatTime, Index]) ->
 	?INFO("Starting RSS download server", []),
 	CurTime = erlang:now(),
 	AdjustedSeed = setelement(2, CurTime, element(2, CurTime) + Index),
@@ -30,7 +29,7 @@ init([Url, RepeatTime, Index, RiakcPid]) ->
 	?INFO("Starting RSS downloader worker for URL ~p in time ~p", [Url, RandStartTime]),
 	erlang:send_after(RandStartTime * 1000, self(), rss_update),
     {ok, 
-	#state{url = Url, repeat_time = RepeatTime * 1000, riakc_pid = RiakcPid}}.
+	#state{url = Url, repeat_time = RepeatTime * 1000}}.
 
 
 %% callbacks

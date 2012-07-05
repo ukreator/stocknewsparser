@@ -29,6 +29,7 @@ start_link() ->
 
 init([]) ->
 	?INFO("Starting stock news parser supervisor", []),
+	% start bunch of children that should live while application is alive  
 	Children = [?CHILD(snp_rss_parse_sup, supervisor), 
 				?CHILD(snp_article_parser_sup, supervisor),
 				?CHILD(snp_db_saver, worker)

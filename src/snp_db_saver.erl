@@ -12,6 +12,8 @@
 %% Include files
 %% --------------------------------------------------------------------
 
+-include("snp_logging.hrl").
+
 %% --------------------------------------------------------------------
 %% External exports
 -export([start_link/0, add_news/1]).
@@ -22,10 +24,12 @@
 %% --------------------------------------------------------------------
 %% Macros
 %% --------------------------------------------------------------------
--include("snp_logging.hrl").
 
+-define(RIAK_ADDR, "127.0.0.1").
+-define(RIAK_PORT, 8098).
 
--record(state, {}).
+% server state
+-record(state, {db}).
 
 
 %% ====================================================================
@@ -53,9 +57,9 @@ add_news(_NewsObj) ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-	?INFO("Starting DB backend helper server", []),
-	
-    {ok, #state{}}.
+	?INFO("Starting DB backend helper server. Connecting to Riak", []),
+	{ok, RiakcPid} = riakc_pb_socket:start_link(?RIAK_ADDR, ?RIAK_PORT),
+    {ok, #state{db=RiakcPid}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -67,7 +71,7 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_call(Request, From, State) ->
+handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
 
@@ -78,7 +82,7 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast(Msg, State) ->
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -88,7 +92,7 @@ handle_cast(Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_info(Info, State) ->
+handle_info(_Info, State) ->
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -96,7 +100,7 @@ handle_info(Info, State) ->
 %% Description: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %% --------------------------------------------------------------------
-terminate(Reason, State) ->
+terminate(_Reason, _State) ->
     ok.
 
 %% --------------------------------------------------------------------
@@ -104,7 +108,7 @@ terminate(Reason, State) ->
 %% Purpose: Convert process state when code is changed
 %% Returns: {ok, NewState}
 %% --------------------------------------------------------------------
-code_change(OldVsn, State, Extra) ->
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% --------------------------------------------------------------------

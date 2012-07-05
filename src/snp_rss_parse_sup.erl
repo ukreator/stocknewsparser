@@ -17,7 +17,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
--export([start_child/4, start_link/0]).
+-export([start_child/3, start_link/0]).
 
 %% --------------------------------------------------------------------
 %% Internal exports
@@ -44,8 +44,8 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-start_child(Url, RepeatTime, Index, RiakcPid) ->
-	supervisor:start_child(?MODULE, [Url, RepeatTime, Index, RiakcPid]).
+start_child(Url, RepeatTime, Index) ->
+	supervisor:start_child(?MODULE, [Url, RepeatTime, Index]).
 
 %% ====================================================================
 %% Server functions
