@@ -27,6 +27,7 @@
 
 -define(RIAK_ADDR, "127.0.0.1").
 -define(RIAK_PORT, 8098).
+-define(BUCKET_NAME, <<"news">>).
 
 % server state
 -record(state, {db}).
@@ -37,10 +38,10 @@
 %% ====================================================================
 
 start_link() ->
-	gen_server:start_link(?MODULE, [], []).
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-add_news(_NewsObj) ->
-	ok.
+add_news(NewsObj) ->
+	gen_server:call(?MODULE, {create_or_update, NewsObj}).
 
 %% ====================================================================
 %% Server functions
@@ -59,6 +60,7 @@ add_news(_NewsObj) ->
 init([]) ->
 	?INFO("Starting DB backend helper server. Connecting to Riak", []),
 	{ok, RiakcPid} = riakc_pb_socket:start_link(?RIAK_ADDR, ?RIAK_PORT),
+	?INFO("Successfully connected to Riak", []),
     {ok, #state{db=RiakcPid}}.
 
 %% --------------------------------------------------------------------
@@ -71,6 +73,14 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_call({create_or_update, Data}, _From, State) ->
+	?INFO("Adding new object to Riak DB", []),
+	% let Riak assign key to our data:
+	Obj = riakc_obj:new(?BUCKET_NAME, undefined, Data),
+	%ok = riakc_pb_socket:ping(State#state.db, 1000),
+	%{Reply, _} = riakc_pb_socket:put(State#state.db, Obj),
+	{reply, ok, State};
+
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -101,6 +111,7 @@ handle_info(_Info, State) ->
 %% Returns: any (ignored by gen_server)
 %% --------------------------------------------------------------------
 terminate(_Reason, _State) ->
+	?INFO("snp_db_saver terminating", []),
     ok.
 
 %% --------------------------------------------------------------------

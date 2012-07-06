@@ -16,7 +16,7 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/1]).
+-export([start_link/1, create/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -38,6 +38,11 @@
 start_link(Url) ->
 	gen_server:start_link(?MODULE, [Url], []).
 
+
+create(Url) ->
+	?INFO("parser server create", []),
+	snp_article_parser_sup:start_child(Url).
+
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -52,6 +57,7 @@ start_link(Url) ->
 %% --------------------------------------------------------------------
 init([Url]) ->
 	?INFO("Start downloading and analyzing article text from URL ~p", [Url]),
+	erlang:send_after(100, self(), {process_url}),
     {ok, #state{url=Url}}.
 
 %% --------------------------------------------------------------------
@@ -85,6 +91,11 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_info({process_url}, State) ->
+	process_url(State#state.url),
+	% stop worker process after processing is done
+	{stop, normal, State};
+
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -108,3 +119,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %% --------------------------------------------------------------------
 
+process_url(Url) ->
+	%  - search for tickers from the list in the body
+	%  - if ticker found, send article info to Riak DB
+	?INFO("Downloading from link ~p", [Url]),
+	
+	NewsObj = {1,2,3},
+	snp_db_saver:add_news(NewsObj),
+	ok.

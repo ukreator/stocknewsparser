@@ -12,6 +12,7 @@
 
 
 -record(state, {url, repeat_time}).
+-record(rss_item, {link, description, publish_date, guid}).
 
 start_link(Url, RepeatTime, Index) ->
 	gen_server:start_link(?MODULE, [Url, RepeatTime, Index], []).
@@ -27,7 +28,7 @@ init([Url, RepeatTime, Index]) ->
 	random:seed(AdjustedSeed),
 	RandStartTime = random:uniform(RepeatTime),
 	?INFO("Starting RSS downloader worker for URL ~p in time ~p", [Url, RandStartTime]),
-	erlang:send_after(RandStartTime * 1000, self(), rss_update),
+	erlang:send_after(RandStartTime * 1000, self(), {rss_update}),
     {ok, 
 	#state{url = Url, repeat_time = RepeatTime * 1000}}.
 
@@ -43,9 +44,9 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info(rss_update, State) ->
+handle_info({rss_update}, State) ->
 	process_rss(State),
-	erlang:send_after(State#state.repeat_time, self(), rss_update),
+	erlang:send_after(State#state.repeat_time, self(), {rss_update}),
 	{noreply, State};
 
 handle_info(_Info, State) ->
@@ -66,11 +67,11 @@ process_rss(State) ->
 	?INFO("Fetching RSS update for URL ~p", [Url]),
 	% make synchronous request
 	% TODO: add support for expiration headers (If-None-Match/ETag and If-Modified-Since/Last-Modified)
-	{ok, {{Version, 200, ReasonPhrase}, Headers, Body}} = 
+	{ok, {{_Version, 200, _ReasonPhrase}, Headers, Body}} = 
 		httpc:request(get, {Url, []}, [], []),
 	?INFO("Got body of length ~p for Url ~p", [length(Body), Url]),
 	{ok, Items} = parse_rss(Body),
-	
+	lists:map(fun(Item) -> snp_article_parser_server:create(Item#rss_item.link) end, Items),
 	ok.
 
 parse_rss(Body) ->
@@ -78,11 +79,9 @@ parse_rss(Body) ->
 	% - extract all <item> elements
 	% - for each item:
 	%  - get <link>, description, pubDate
-	%  - download document from <link>
-	%  - search for tickers from the list in the body
-	%  - if ticker found, send article info to Riak DB
-	{ok, []}.
+	%  - pass document from <link> to snp_article_parser_server
+	FakeItems = [#rss_item{link="http://1"}, #rss_item{link="http://2"}],
+	
+	{ok, FakeItems}.
 
-download_article(Link) ->
-	% - download articles asynchronously and parse them (start one seperate process?)
-	ok.
+

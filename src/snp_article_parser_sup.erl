@@ -56,8 +56,8 @@ start_child(Url) ->
 %% --------------------------------------------------------------------
 init([]) ->
 	?INFO("Creating article parser supervisor", []),
-    AChild = {snp_article_parser, {snp_article_parser, start_link, []}, temporary, 
-			  5000, worker, [snp_article_parser]},
+    AChild = {snp_article_parser_server, {snp_article_parser_server, start_link, []}, temporary, 
+			  5000, worker, [snp_article_parser_server]},
     {ok, {{simple_one_for_one, 5, 10}, [AChild]}}.
 
 %% ====================================================================
