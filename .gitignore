@@ -3,6 +3,8 @@
 *.o
 .eunit
 deps
+ebin
+rel/stocknewsparser
 
 # Packages #
 ############
