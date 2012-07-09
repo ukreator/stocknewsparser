@@ -1,22 +1,73 @@
-%% Author: dmitry
-%% Created: May 11, 2012
-%% Description: TODO: Add description to rss_parse
+%%% -------------------------------------------------------------------
+%%% Author  : Dmitry Sobinov
+%%% Email: sobinov@crystalnix.com
+%%% Description : RSS XML document parsing functions.
+%%%
+%%% Created : 11.05.2012
+%%% -------------------------------------------------------------------
 -module(snp_rss_parse).
 
 %%
 %% Include files
 %%
+
+-include("snp_rss_item.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 %%
 %% Exported Functions
 %%
--export([compare_feed_items/2, get_item_time/1, get_feed_items/1, is_rss2_feed/1]).
+-export([compare_feed_items/2, get_item_time/1, get_feed_items/1, is_rss2_feed/1, get_items/1]).
 
 %%
 %% API Functions
 %%
 
+get_items(XmlBody) ->
+	% TODO: 
+	% - extract all <item> elements
+	% - for each item:
+	%  - get <link>, description, pubDate
+	%  - pass document from <link> to snp_article_parser_server
+
+	{Document, _} = xmerl_scan:string(XmlBody),
+	RssCheckResult = is_rss2_feed(Document),
+	case RssCheckResult of
+		false -> {error, not_rss2_document};
+		true  -> {ok, parse_doc(Document)}
+	end.
+
+parse_doc(Document) ->
+	XmlItems = get_feed_items(Document),
+	lists:map(fun(XmlItem) ->
+					  Required = #rss_item{
+								link=get_field(XmlItem, "link"),
+								publish_date=get_field(XmlItem, "pubDate")},
+					  
+					  Title = get_field(XmlItem, "title"),
+					  Guid = get_field(XmlItem, "guid"),
+					  WithTitle = case Title of
+							{ok, TitleVal} -> Required#rss_item{title=TitleVal};
+							_ -> Required
+					  end,
+					  case Guid of
+							{ok, GuidVal} -> WithTitle#rss_item{guid=GuidVal};
+							_ -> WithTitle
+					  end
+				end, XmlItems).
+			  
+
+
+
+get_field(XmlItem, FieldName) ->
+	FieldVal = xmerl_xpath:string(FieldName ++ "[1]/text()", XmlItem),
+	case FieldVal of
+		[Val] -> {ok, Val#xmlText.value};
+		[]    -> {error}
+	end.
+
+
+			  
 compare_feed_items(OldItem, NewItem) ->
 	ItemComparators = lists:map(fun (Elem) -> 
 					   fun (X, Y) -> 

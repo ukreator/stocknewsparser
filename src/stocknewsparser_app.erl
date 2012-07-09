@@ -1,3 +1,10 @@
+%%% -------------------------------------------------------------------
+%%% Author  : Dmitry Sobinov
+%%% Email: sobinov@crystalnix.com
+%%% Description :
+%%%
+%%% -------------------------------------------------------------------
+
 -module(stocknewsparser_app).
 
 -behaviour(application).

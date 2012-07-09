@@ -1,3 +1,9 @@
+%%% -------------------------------------------------------------------
+%%% Author  : Dmitry Sobinov
+%%% Email: sobinov@crystalnix.com
+%%% Description :
+%%%
+%%% -------------------------------------------------------------------
 
 -module(snp_rss_downloader_server).
 
@@ -9,10 +15,11 @@
     terminate/2, code_change/3]).
 
 -include("snp_logging.hrl").
+-include("snp_rss_item.hrl").
 
 
 -record(state, {url, repeat_time}).
--record(rss_item, {link, description, publish_date, guid}).
+
 
 start_link(Url, RepeatTime, Index) ->
 	gen_server:start_link(?MODULE, [Url, RepeatTime, Index], []).
@@ -65,23 +72,12 @@ code_change(_OldVsn, State, _Extra) ->
 process_rss(State) ->
 	Url = State#state.url,
 	?INFO("Fetching RSS update for URL ~p", [Url]),
-	% make synchronous request
+	
 	% TODO: add support for expiration headers (If-None-Match/ETag and If-Modified-Since/Last-Modified)
+	% synchronous download of RSS feed
 	{ok, {{_Version, 200, _ReasonPhrase}, Headers, Body}} = 
 		httpc:request(get, {Url, []}, [], []),
 	?INFO("Got body of length ~p for Url ~p", [length(Body), Url]),
-	{ok, Items} = parse_rss(Body),
+	Items = snp_rss_parse:get_items(Body),
 	lists:map(fun(Item) -> snp_article_parser_server:create(Item#rss_item.link) end, Items),
 	ok.
-
-parse_rss(Body) ->
-	% TODO: 
-	% - extract all <item> elements
-	% - for each item:
-	%  - get <link>, description, pubDate
-	%  - pass document from <link> to snp_article_parser_server
-	FakeItems = [#rss_item{link="http://1"}, #rss_item{link="http://2"}],
-	
-	{ok, FakeItems}.
-
-
