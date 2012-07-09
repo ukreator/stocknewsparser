@@ -26,7 +26,7 @@
 %% --------------------------------------------------------------------
 
 -define(RIAK_ADDR, "127.0.0.1").
--define(RIAK_PORT, 8098).
+-define(RIAK_PORT, 8087).
 -define(BUCKET_NAME, <<"news">>).
 
 % server state
@@ -60,7 +60,7 @@ add_news(NewsObj) ->
 init([]) ->
 	?INFO("Starting DB backend helper server. Connecting to Riak", []),
 	{ok, RiakcPid} = riakc_pb_socket:start_link(?RIAK_ADDR, ?RIAK_PORT),
-	?INFO("Successfully connected to Riak", []),
+	?INFO("Successfully connected to Riak. Pid is ~p", [RiakcPid]),
     {ok, #state{db=RiakcPid}}.
 
 %% --------------------------------------------------------------------
@@ -77,9 +77,8 @@ handle_call({create_or_update, Data}, _From, State) ->
 	?INFO("Adding new object to Riak DB", []),
 	% let Riak assign key to our data:
 	Obj = riakc_obj:new(?BUCKET_NAME, undefined, Data),
-	%ok = riakc_pb_socket:ping(State#state.db, 1000),
-	%{Reply, _} = riakc_pb_socket:put(State#state.db, Obj),
-	{reply, ok, State};
+	{Reply, _} = riakc_pb_socket:put(State#state.db, Obj),
+	{reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
     Reply = ok,
