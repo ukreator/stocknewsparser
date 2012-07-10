@@ -12,3 +12,8 @@ How to build:
 How to run:
 
 ./rel/stocknewsparser/bin/stocknewsparser console
+
+
+Run unit tests:
+
+rebar eunit skip_deps=true
