@@ -39,13 +39,15 @@ get_items(XmlBody) ->
 
 parse_doc(Document) ->
 	XmlItems = get_feed_items(Document),
-	lists:map(fun(XmlItem) ->
-					  Required = #rss_item{
-								link=get_field(XmlItem, "link"),
-								publish_date=get_field(XmlItem, "pubDate")},
-					  
+	lists:map(fun(XmlItem) ->				  
+					  {ok, Link} = get_field(XmlItem, "link"),
+					  {ok, PublishDate} = get_field(XmlItem, "pubDate"),
 					  Title = get_field(XmlItem, "title"),
 					  Guid = get_field(XmlItem, "guid"),
+					  
+					  Required = #rss_item{
+								link=Link,
+								publish_date=PublishDate},
 					  WithTitle = case Title of
 							{ok, TitleVal} -> Required#rss_item{title=TitleVal};
 							_ -> Required

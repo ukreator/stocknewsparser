@@ -17,7 +17,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
--export([start_link/0, start_child/1]).
+-export([start_link/0, start_child/2]).
 
 %% --------------------------------------------------------------------
 %% Internal exports
@@ -42,8 +42,8 @@
 start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-start_child(Url) ->
-	supervisor:start_child(?MODULE, [Url]).
+start_child(Url, StartDelay) ->
+	supervisor:start_child(?MODULE, [Url, StartDelay]).
 
 %% ====================================================================
 %% Server functions

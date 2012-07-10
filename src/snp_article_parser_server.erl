@@ -16,7 +16,7 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/1, create/1]).
+-export([start_link/2, create/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -35,13 +35,12 @@
 %% External functions
 %% ====================================================================
 
-start_link(Url) ->
-	gen_server:start_link(?MODULE, [Url], []).
+start_link(Url, StartDelay) ->
+	gen_server:start_link(?MODULE, [Url, StartDelay], []).
 
 
-create(Url) ->
-	?INFO("parser server create", []),
-	snp_article_parser_sup:start_child(Url).
+create(Url, StartDelay) ->
+	snp_article_parser_sup:start_child(Url, StartDelay).
 
 %% ====================================================================
 %% Server functions
@@ -55,9 +54,9 @@ create(Url) ->
 %%          ignore               |
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
-init([Url]) ->
-	?INFO("Start downloading and analyzing article text from URL ~p", [Url]),
-	erlang:send_after(100, self(), {process_url}),
+init([Url, StartDelay]) ->
+	?INFO("Start downloading and analyzing article text from URL ~p in ~p milliseconds", [Url, StartDelay]),
+	erlang:send_after(StartDelay, self(), {process_url}),
     {ok, #state{url=Url}}.
 
 %% --------------------------------------------------------------------
@@ -121,9 +120,22 @@ code_change(_OldVsn, State, _Extra) ->
 
 process_url(Url) ->
 	%  - search for tickers from the list in the body
-	%  - if ticker found, send article info to Riak DB
 	?INFO("Downloading from link ~p", [Url]),
-	
-	NewsObj = {1,2,3},
+	{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = 
+		httpc:request(get, {Url, []}, [], []),
+	?INFO("Got article body of length ~p for Url ~p", [length(Body), Url]),
+	{ok, NewsObj} = process_article_body(Body),
 	snp_db_saver:add_news(NewsObj),
 	ok.
+
+process_article_body(Body) ->
+	% - preload ticker symbols and company names in a list
+	% - process article to words and save to a hash set
+	% - loop over all tickers and check if has set has i-th ticker
+	%
+	%
+	%
+
+	Words = string:tokens(Body, ",.<>:;\"\\/$%#*&()=+?! "),
+	?INFO("Words: ~p", Words),
+	{ok, {1,2,3}}.

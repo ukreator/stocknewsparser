@@ -17,6 +17,7 @@
 -include("snp_logging.hrl").
 -include("snp_rss_item.hrl").
 
+-define(START_DELAY_MAX, 4000).
 
 -record(state, {url, repeat_time}).
 
@@ -75,9 +76,13 @@ process_rss(State) ->
 	
 	% TODO: add support for expiration headers (If-None-Match/ETag and If-Modified-Since/Last-Modified)
 	% synchronous download of RSS feed
-	{ok, {{_Version, 200, _ReasonPhrase}, Headers, Body}} = 
+	{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = 
 		httpc:request(get, {Url, []}, [], []),
-	?INFO("Got body of length ~p for Url ~p", [length(Body), Url]),
-	Items = snp_rss_parse:get_items(Body),
-	lists:map(fun(Item) -> snp_article_parser_server:create(Item#rss_item.link) end, Items),
+	?INFO("Got RSS body of length ~p for Url ~p", [length(Body), Url]),
+	{ok, Items} = snp_rss_parse:get_items(Body),
+	
+	lists:map(fun(Item) -> 
+					  StartDelay = random:uniform(?START_DELAY_MAX),					  
+					  snp_article_parser_server:create(Item#rss_item.link, StartDelay) 
+			  end, Items),
 	ok.
