@@ -139,6 +139,7 @@ process_article_body(Body) ->
 	%Words = string:tokens(Body, ",.<>:;\"\\/$%#*&()=+?! "),
 	Text = tokens_to_text(Tokens),
 	Words = text_to_words(Text),
+	
 	?INFO("~p", Words),
 	{ok, {1,2,3}}.
 
@@ -147,14 +148,13 @@ tokens_to_text(Tokens) ->
 	% text order is inversed, but it doesn't matter for us
 	ConcatFun = fun(X, Text) -> [element(2, X) | Text] end,
 	FilterFun = fun({data, _, false}) -> true;
-				   (_)                -> false 
+				   (_OtherTokens)                -> false 
 				end,
 	lists:foldl(ConcatFun, [], lists:filter(FilterFun, Tokens)).
 
 text_to_words(Text) ->
 	Pattern = lists:map(fun(El) -> <<El>> end, ",.<>:;\"\\/$%#*&()=+?! "), 
-	SplittingFun = fun(Elem) -> binary:split(Elem, Pattern, [global, trim]) end,
-	
+	SplittingFun = fun(Elem) -> binary:split(Elem, Pattern, [global, trim]) end,	
 	lists:foldl(fun(Elem, Accum) -> 
 						Words = SplittingFun(Elem),
 						Accum ++ Words
