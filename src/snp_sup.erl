@@ -38,7 +38,8 @@ init([]) ->
 	% start bunch of children that should live while application is alive  
 	Children = [?CHILD(snp_rss_parse_sup, supervisor), 
 				?CHILD(snp_article_parser_sup, supervisor),
-				?CHILD(snp_db_saver, worker)
+				?CHILD(snp_db_saver, worker),
+				?CHILD(snp_ticker_matcher_server, worker)
 				],
 	RestartStrategy = {one_for_one, 5, 10},
     {ok, {RestartStrategy, Children}}.
