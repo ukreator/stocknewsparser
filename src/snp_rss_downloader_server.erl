@@ -79,10 +79,11 @@ process_rss(State) ->
 	{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = 
 		httpc:request(get, {Url, []}, [], []),
 	?INFO("Got RSS body of length ~p for Url ~p", [length(Body), Url]),
+	
 	{ok, Items} = snp_rss_parse:get_items(Body),
 	
 	lists:map(fun(Item) -> 
 					  StartDelay = random:uniform(?START_DELAY_MAX),					  
-					  snp_article_parser_server:create(Item#rss_item.link, StartDelay) 
+					  snp_article_parser_server:create(Item, StartDelay) 
 			  end, Items),
 	ok.

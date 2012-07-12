@@ -47,12 +47,14 @@ stop(_State) ->
 
 
 start_children() ->
+	FeedList = ?RSS_FEEDS,
+	%FeedList = [],
 	% generate index for additional seeding factor (increase seconds in current time)
 	lists:foldl(
 			fun(Url, Index) -> start_child(Url, Index),
 		 	Index + 1
 		 	end, 
-		0, ?RSS_FEEDS),
+		0, FeedList),
 	ok.
 
 start_child(Url, Index) ->

@@ -13,6 +13,7 @@
 
 -include("snp_rss_item.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+-include("snp_logging.hrl").
 
 %%
 %% Exported Functions
@@ -24,12 +25,6 @@
 %%
 
 get_items(XmlBody) ->
-	% TODO: 
-	% - extract all <item> elements
-	% - for each item:
-	%  - get <link>, description, pubDate
-	%  - pass document from <link> to snp_article_parser_server
-
 	{Document, _} = xmerl_scan:string(XmlBody),
 	RssCheckResult = is_rss2_feed(Document),
 	case RssCheckResult of

@@ -13,6 +13,8 @@
 %% --------------------------------------------------------------------
 
 -include("snp_logging.hrl").
+-include("snp_ticker_record.hrl").
+-include("snp_rss_item.hrl").
 
 %% --------------------------------------------------------------------
 %% External exports
@@ -22,7 +24,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 % server state
--record(state, {url}).
+-record(state, {rss_item}).
 
 %% --------------------------------------------------------------------
 %% Macros
@@ -35,12 +37,12 @@
 %% External functions
 %% ====================================================================
 
-start_link(Url, StartDelay) ->
-	gen_server:start_link(?MODULE, [Url, StartDelay], []).
+start_link(RssItem, StartDelay) ->
+	gen_server:start_link(?MODULE, [RssItem, StartDelay], []).
 
 
-create(Url, StartDelay) ->
-	snp_article_parser_sup:start_child(Url, StartDelay).
+create(RssItem, StartDelay) ->
+	snp_article_parser_sup:start_child(RssItem, StartDelay).
 
 %% ====================================================================
 %% Server functions
@@ -54,10 +56,10 @@ create(Url, StartDelay) ->
 %%          ignore               |
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
-init([Url, StartDelay]) ->
-	?INFO("Start downloading and analyzing article text from URL ~p in ~p milliseconds", [Url, StartDelay]),
+init([RssItem, StartDelay]) ->
+	?INFO("Start downloading and analyzing article text from URL ~p in ~p milliseconds", [RssItem#rss_item.link, StartDelay]),
 	erlang:send_after(StartDelay, self(), {process_url}),
-    {ok, #state{url=Url}}.
+    {ok, #state{rss_item=RssItem}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -91,7 +93,7 @@ handle_cast(_Msg, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_info({process_url}, State) ->
-	process_url(State#state.url),
+	process_url(State),
 	% stop worker process after processing is done
 	{stop, normal, State};
 
@@ -118,14 +120,26 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %% --------------------------------------------------------------------
 
-process_url(Url) ->
-	%  - search for tickers from the list in the body
-	?INFO("Downloading from link ~p", [Url]),
+process_url(State) ->
+	RssItem = State#state.rss_item,
+	Url = RssItem#rss_item.link,
+
 	{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = 
 		httpc:request(get, {Url, []}, [], []),
 	?INFO("Got article body of length ~p for Url ~p", [length(Body), Url]),
-	{ok, NewsObj} = process_article_body(Body),
-	snp_db_saver:add_news(NewsObj),
+	
+	{ok, WordsDict} = process_article_body(Body),
+	?INFO("Word dict: ", [WordsDict]),
+	Matches = snp_ticker_matcher_server:find_match(WordsDict),
+	% form ready-to-store objects
+	FinalObjects = lists:map(fun({Ticker, CompanyName}) -> 
+									 #ticker_item{ticker_symbol=Ticker, company_name=CompanyName,
+												   link=Url, title=RssItem#rss_item.title, 
+												  publish_date=RssItem#rss_item.publish_date, 
+												  guid=RssItem#rss_item.guid} 
+							 end, Matches),
+	
+	lists:foreach(fun(Obj) -> snp_db_saver:add_news(Obj) end, FinalObjects),
 	ok.
 
 process_article_body(Body) ->
@@ -136,24 +150,34 @@ process_article_body(Body) ->
 	%
 
 	Tokens = mochiweb_html:tokens(Body),
-	%Words = string:tokens(Body, ",.<>:;\"\\/$%#*&()=+?! "),
 	Text = tokens_to_text(Tokens),
 	Words = text_to_words(Text),
-	
-	?INFO("~p", Words),
-	{ok, {1,2,3}}.
+	% transform to dict of words with keys as 64 bit hash
+	WordsDict = lists:foldl(fun(Word, Dict) -> 
+									Hash = erlang:phash2(Word, 4294967296),
+									AlreadyExists = case dict:find(Hash, Dict) of
+														{ok, WordList} -> lists:member(Word, WordList);
+														error -> false
+													end,
+									case AlreadyExists of 
+										false -> dict:append(Hash, Word, Dict);
+										true -> Dict
+									end
+							end, dict:new(), Words),
+	{ok, WordsDict}.
 
 
 tokens_to_text(Tokens) ->
 	% text order is inversed, but it doesn't matter for us
 	ConcatFun = fun(X, Text) -> [element(2, X) | Text] end,
+	% TODO: skip JS blocks
 	FilterFun = fun({data, _, false}) -> true;
 				   (_OtherTokens)                -> false 
 				end,
 	lists:foldl(ConcatFun, [], lists:filter(FilterFun, Tokens)).
 
 text_to_words(Text) ->
-	Pattern = lists:map(fun(El) -> <<El>> end, ",.<>:;\"\\/$%#*&()=+?! "), 
+	Pattern = lists:map(fun(El) -> <<El>> end, ",.<>:;\"\\/$%#*&()=+?!'\r\n "), 
 	SplittingFun = fun(Elem) -> binary:split(Elem, Pattern, [global, trim]) end,	
 	lists:foldl(fun(Elem, Accum) -> 
 						Words = SplittingFun(Elem),
