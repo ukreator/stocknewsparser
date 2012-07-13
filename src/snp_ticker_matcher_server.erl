@@ -15,6 +15,10 @@
 -include("snp_logging.hrl").
 -include("snp_ticker_record.hrl").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 %% --------------------------------------------------------------------
 %% External exports
 -export([start_link/0, find_match/1]).
@@ -52,7 +56,9 @@ find_match(ArticleData) ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-	Tickers = get_tickers(),
+	{ok, TickerFiles} = application:get_env(stocknewsparser, ticker_symbol_files),
+	Tickers = get_tickers(TickerFiles),
+	?INFO("Tickers: ~p", [Tickers]),
     {ok, #state{tickers=Tickers}}.
 
 %% --------------------------------------------------------------------
@@ -66,21 +72,7 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({find_match, WordsDict}, _From, State) ->
-	TickerCheckFun = fun({Ticker, CompanyName, Hash}, MatchingList) ->
-					% check for ticker presense in article text
-					case dict:find(Hash, WordsDict) of
-						{ok, WordsList} -> 
-							% additional check if hash collision happened
-							lists:foldl(fun(Word = Ticker, Accum) ->
-									% accumulate {ticker, comapny_name} tuple on match
-									[{Word, CompanyName} | Accum] 
-								end, MatchingList, WordsList);
-						error -> MatchingList
-					end
-				end,
-	
-	% iterate over all ticker symbols and try to find them in the passed word list
-	Reply = lists:foldl(TickerCheckFun, [], State#state.tickers),
+	Reply = find_matches(WordsDict, State#state.tickers),
 	{reply, Reply, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
@@ -126,17 +118,81 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %% --------------------------------------------------------------------
 
-get_tickers() ->
-	{ok, TickerFiles} = application:get_env(stocknewsparser, ticker_symbol_files),
+get_tickers(TickerFiles) ->
 	CompaniesInfo = lists:flatmap(fun(File) ->
 			?INFO("Loading tickers from file ~p", [File]),
 			[_Head | Records] = erfc_4180:parse_file(File, []),
 			Records 
 		end, TickerFiles),
-	% extract ticker symbol and company name
-	% FIXME: check that all strings are binaries!
+	% extract ticker symbol and company name + add hash of ticker symbol
 	lists:map(fun(Elem) -> 
 				Ticker = element(1, Elem),
 				CompanyName = element(2, Elem), 
-				{Ticker, CompanyName, erlang:phash2(Ticker, 4294967296)} 
+				{list_to_binary(Ticker), list_to_binary(CompanyName), 
+				 snp_helpers:hash_32bit(list_to_binary(Ticker))} 
 			end, CompaniesInfo).
+
+
+find_matches(WordsDict, Tickers) ->
+  	TickerCheckFun = fun({Ticker, CompanyName, Hash}, MatchingList) ->
+					% check for ticker presense in article text
+					case dict:find(Hash, WordsDict) of
+						{ok, WordsList} -> 
+							% additional check if hash collision happened
+							lists:foldl(fun
+										    % accumulate {ticker, company_name} tuple on match
+											(Word, Accum) when Word == Ticker -> [{Word, CompanyName} | Accum];
+											(_Word, Accum) -> Accum
+										end,
+										MatchingList, WordsList);
+						error -> MatchingList
+					end
+				end,
+	
+	% iterate over all ticker symbols and try to find them in the passed word list
+	lists:foldl(TickerCheckFun, [], Tickers).
+
+
+%% --------------------------------------------------------------------
+%%% Unit tests
+%% --------------------------------------------------------------------
+
+				   
+-ifdef(TEST).
+
+get_tickers_test() ->
+	Tickers = get_tickers(["../priv/test/test1.csv", "../priv/test/test2.csv"]),
+    ?assertEqual([{<<"DDD">>, <<"3D Systems Corporation">>, 2334519064}, {<<"MMM">>, <<"3M Company">>, 2907585361}, 
+				  {<<"SVN">>, <<"7 Days Group Holdings Limited">>, 3128474594}, 
+				  {<<"XXX">>, <<"Xprerts Fund">>, 4182447552}, {<<"FFF">>, <<"Freq From Far Inc.">>, 2057392867}, 
+				  {<<"LWN">>, <<"Low Wan New Co.">>, 1860772198}],
+				 Tickers).
+
+find_matches_test() ->
+	WordsDict = dict:from_list([{823394921, [<<"pat2">>]}, {4182447552, [<<"XXX">>]}, {123, [<<"aaa">>]}]),
+	Tickers = [{<<"DDD">>, <<"c1">>, 2334519064}, 
+				  {<<"SVN">>, <<"c2">>, 3128474594}, 
+				  {<<"XXX">>, <<"c3">>, 4182447552}, 
+				  {<<"LWN">>, <<"c4">>, 1860772198}],
+	?assertEqual([{<<"XXX">>, <<"c3">>}], find_matches(WordsDict, Tickers)).
+
+find_few_matches_test() ->
+	WordsDict = dict:from_list([{823394921, [<<"pat2">>]}, {4182447552, [<<"XXX">>]}, {123, [<<"aaa">>]}, {1860772198, [<<"LWN">>]}]),
+	Tickers = [{<<"DDD">>, <<"c1">>, 2334519064}, 
+				  {<<"SVN">>, <<"c2">>, 3128474594}, 
+				  {<<"XXX">>, <<"c3">>, 4182447552}, 
+				  {<<"LWN">>, <<"c4">>, 1860772198}],
+	Matches = find_matches(WordsDict, Tickers),
+	?assertEqual(2, length(Matches)),
+	?assert(lists:member({<<"XXX">>, <<"c3">>}, Matches)),
+	?assert(lists:member({<<"LWN">>, <<"c4">>}, Matches)).
+
+find_matches_hash_collision_test() ->
+	WordsDict = dict:from_list([{823394921, [<<"pat2">>]}, {4182447552, [<<"pat3">>, <<"XXX">>]}, {123, [<<"aaa">>]}]),
+	Tickers = [{<<"DDD">>, <<"c1">>, 2334519064}, 
+				  {<<"SVN">>, <<"c2">>, 3128474594}, 
+				  {<<"XXX">>, <<"c3">>, 4182447552}, 
+				  {<<"LWN">>, <<"c4">>, 1860772198}],
+	?assertEqual([{<<"XXX">>, <<"c3">>}], find_matches(WordsDict, Tickers)).
+
+-endif.

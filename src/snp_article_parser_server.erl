@@ -16,6 +16,10 @@
 -include("snp_ticker_record.hrl").
 -include("snp_rss_item.hrl").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 %% --------------------------------------------------------------------
 %% External exports
 -export([start_link/2, create/2]).
@@ -128,33 +132,47 @@ process_url(State) ->
 		httpc:request(get, {Url, []}, [], []),
 	?INFO("Got article body of length ~p for Url ~p", [length(Body), Url]),
 	
-	{ok, WordsDict} = process_article_body(Body),
-	?INFO("Word dict: ", [WordsDict]),
+	WordsDict = process_article_body(Body),
+	%?INFO("Word dict: ", [WordsDict]),
 	Matches = snp_ticker_matcher_server:find_match(WordsDict),
-	% form ready-to-store objects
-	FinalObjects = lists:map(fun({Ticker, CompanyName}) -> 
-									 #ticker_item{ticker_symbol=Ticker, company_name=CompanyName,
-												   link=Url, title=RssItem#rss_item.title, 
-												  publish_date=RssItem#rss_item.publish_date, 
-												  guid=RssItem#rss_item.guid} 
-							 end, Matches),
-	
+	FinalObjects = matches_to_db_objects(Matches, RssItem),
 	lists:foreach(fun(Obj) -> snp_db_saver:add_news(Obj) end, FinalObjects),
 	ok.
 
-process_article_body(Body) ->
-	% - preload ticker symbols and company names in a list
-	% - process article to words and save to a hash set
-	% - loop over all tickers and check if has set has i-th ticker
-	%
-	%
 
+process_article_body(Body) ->
 	Tokens = mochiweb_html:tokens(Body),
 	Text = tokens_to_text(Tokens),
 	Words = text_to_words(Text),
-	% transform to dict of words with keys as 64 bit hash
-	WordsDict = lists:foldl(fun(Word, Dict) -> 
-									Hash = erlang:phash2(Word, 4294967296),
+	words_to_dict(Words).
+
+
+tokens_to_text(Tokens) ->
+	% text order is inversed, but it doesn't matter for us
+	ConcatFun = fun(X, Text) -> [element(2, X) | Text] end,
+	% TODO: skip JS blocks
+	FilterFun = fun({data, _, false}) -> true;
+				   (_OtherTokens)     -> false 
+				end,
+	lists:foldl(ConcatFun, [], lists:filter(FilterFun, Tokens)).
+
+
+text_to_words(Text) ->
+	Pattern = lists:map(fun(El) -> <<El>> end, ",.<>:;\"\\/$%#*&()=+?!'\r\n "), 
+	SplittingFun = fun(Elem) -> binary:split(Elem, Pattern, [global, trim]) end,	
+	lists:foldl(fun(Elem, Accum) -> 
+						Words = SplittingFun(Elem),
+						% skip empty words and collect all others
+						lists:foldl(fun(<<>>, A) -> A; (E, A) -> [E | A] end, Accum, Words)
+				end, 
+				[], Text).
+
+
+%% transforms to dict of words with keys as 32 bit hash
+words_to_dict(Words) ->
+	HashingAndFilteringFun = fun(Word, Dict) -> 
+									Hash = snp_helpers:hash_32bit(Word),
+									% skip if current word is already in the dict
 									AlreadyExists = case dict:find(Hash, Dict) of
 														{ok, WordList} -> lists:member(Word, WordList);
 														error -> false
@@ -163,28 +181,43 @@ process_article_body(Body) ->
 										false -> dict:append(Hash, Word, Dict);
 										true -> Dict
 									end
-							end, dict:new(), Words),
-	{ok, WordsDict}.
+							end,
+	lists:foldl(HashingAndFilteringFun, dict:new(), Words).
 
 
-tokens_to_text(Tokens) ->
-	% text order is inversed, but it doesn't matter for us
-	ConcatFun = fun(X, Text) -> [element(2, X) | Text] end,
-	% TODO: skip JS blocks
-	FilterFun = fun({data, _, false}) -> true;
-				   (_OtherTokens)                -> false 
-				end,
-	lists:foldl(ConcatFun, [], lists:filter(FilterFun, Tokens)).
+matches_to_db_objects(Matches, RssItem) ->
+	lists:map(fun({Ticker, CompanyName}) -> 
+					 #ticker_item{ticker_symbol=Ticker, company_name=CompanyName,
+								  link=RssItem#rss_item.link, title=RssItem#rss_item.title, 
+								  publish_date=RssItem#rss_item.publish_date, 
+								  guid=RssItem#rss_item.guid} 
+			 end, Matches).
 
-text_to_words(Text) ->
-	Pattern = lists:map(fun(El) -> <<El>> end, ",.<>:;\"\\/$%#*&()=+?!'\r\n "), 
-	SplittingFun = fun(Elem) -> binary:split(Elem, Pattern, [global, trim]) end,	
-	lists:foldl(fun(Elem, Accum) -> 
-						Words = SplittingFun(Elem),
-						Accum ++ Words
-				end, 
-				[], Text).
-				   
-
+%% --------------------------------------------------------------------
+%%% Unit tests
+%% --------------------------------------------------------------------
 
 				   
+-ifdef(TEST).
+
+text_to_words_test() ->
+	Text = [<<"PAT1">>, <<"pat2">>, <<"t;11 12, dd 33/44 (aaa&90)">>],
+    ?assertEqual(lists:reverse([<<"PAT1">>, <<"pat2">>, <<"t">>, <<"11">>, <<"12">>, <<"dd">>, <<"33">>, <<"44">>, <<"aaa">>, <<"90">>]), 
+				 text_to_words(Text)).
+
+words_to_dict_test() ->
+	Words = [<<"PAT1">>, <<"pat2">>],
+	% pay attention on value type, it's list
+	Dict = dict:from_list([{1534248240, [<<"PAT1">>]}, {823394921, [<<"pat2">>]}]),
+	Result = words_to_dict(Words),
+	?assertEqual(Dict, Result).
+
+words_to_dict_repeated_vals_test() ->
+	Words = [<<"PAT1">>, <<"pat2">>, <<"PAT1">>],
+	% pay attention on value type, it's list
+	Dict = dict:from_list([{1534248240, [<<"PAT1">>]}, {823394921, [<<"pat2">>]}]),
+	Result = words_to_dict(Words),
+	?assertEqual(Dict, Result).
+
+
+-endif.
