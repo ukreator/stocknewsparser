@@ -26,12 +26,9 @@
 %% Macros
 %% --------------------------------------------------------------------
 
--define(RIAK_ADDR, "127.0.0.1").
--define(RIAK_PORT, 8087).
--define(BUCKET_NAME, <<"news">>).
 
 % server state
--record(state, {db}).
+-record(state, {db, bucket_name}).
 
 
 %% ====================================================================
@@ -59,10 +56,13 @@ add_news(NewsObj) ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-	?INFO("Starting DB backend helper server. Connecting to Riak", []),
-	{ok, RiakcPid} = riakc_pb_socket:start_link(?RIAK_ADDR, ?RIAK_PORT),
+	{ok, RiakHost} = application:get_env(stocknewsparser, riak_host),
+	{ok, RiakPort} = application:get_env(stocknewsparser, riak_port),
+	{ok, RiakBucketName} = application:get_env(stocknewsparser, riak_bucket_name),
+	?INFO("Starting DB backend helper server. Connecting to Riak at host ~p and port ~p", [RiakHost, RiakPort]),
+	{ok, RiakcPid} = riakc_pb_socket:start_link(RiakHost, RiakPort),
 	?INFO("Successfully connected to Riak. Pid is ~p", [RiakcPid]),
-    {ok, #state{db=RiakcPid}}.
+    {ok, #state{db=RiakcPid, bucket_name=RiakBucketName}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -75,9 +75,9 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({create_or_update, Data}, _From, State) ->
-	?INFO("Adding new object to Riak DB", []),
+	?INFO("Adding new object to Riak DB: ~p", [Data]),
 	% let Riak assign key to our data:
-	Obj = riakc_obj:new(?BUCKET_NAME, undefined, Data),
+	Obj = riakc_obj:new(State#state.bucket_name, undefined, Data),
 	{Reply, _} = riakc_pb_socket:put(State#state.db, Obj),
 	{reply, Reply, State};
 
@@ -126,7 +126,3 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %% --------------------------------------------------------------------
 
-% possible DB scheme:
-% ticker
-% news link
-% datetime

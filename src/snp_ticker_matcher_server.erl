@@ -58,7 +58,6 @@ find_match(ArticleData) ->
 init([]) ->
 	{ok, TickerFiles} = application:get_env(stocknewsparser, ticker_symbol_files),
 	Tickers = get_tickers(TickerFiles),
-	?INFO("Tickers: ~p", [Tickers]),
     {ok, #state{tickers=Tickers}}.
 
 %% --------------------------------------------------------------------
@@ -141,7 +140,7 @@ find_matches(WordsDict, Tickers) ->
 							% additional check if hash collision happened
 							lists:foldl(fun
 										    % accumulate {ticker, company_name} tuple on match
-											(Word, Accum) when Word == Ticker -> [{Word, CompanyName} | Accum];
+											(Word, Accum) when Word =:= Ticker -> [{Word, CompanyName} | Accum];
 											(_Word, Accum) -> Accum
 										end,
 										MatchingList, WordsList);
