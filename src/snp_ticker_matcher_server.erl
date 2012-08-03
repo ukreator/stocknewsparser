@@ -21,12 +21,12 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/0, find_match/1]).
+-export([start_link/0, find_known_tickers/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {tickers}).
+-record(state, {ticker_dict}).
 
 
 %% ====================================================================
@@ -36,11 +36,8 @@
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-find_match(ArticleData) ->
-	% TODO: use also company name, match at least one word of company name as additional check
-	% words to exclude from check (case-insensitive): Inc, Ltd, Corp, Corporation, Group, Trust, Fund, Co, LLC, Company
-	% iterate over tickers (from state) and check for presence in article word table
-	gen_server:call(?MODULE, {find_match, ArticleData}).
+find_known_tickers(ExtractedTickers) ->
+	gen_server:call(?MODULE, {find_known_tickers, ExtractedTickers}).
 
 
 %% ====================================================================
@@ -57,8 +54,8 @@ find_match(ArticleData) ->
 %% --------------------------------------------------------------------
 init([]) ->
 	{ok, TickerFiles} = application:get_env(stocknewsparser, ticker_symbol_files),
-	Tickers = get_tickers(TickerFiles),
-    {ok, #state{tickers=Tickers}}.
+	TickerDict = get_tickers(TickerFiles),
+    {ok, #state{ticker_dict=TickerDict}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -70,8 +67,9 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_call({find_match, WordsDict}, _From, State) ->
-	Reply = find_matches(WordsDict, State#state.tickers),
+
+handle_call({find_known_tickers, ExtractedTickers}, _From, State) ->
+	Reply = find_known_tickers(ExtractedTickers, State#state.ticker_dict),
 	{reply, Reply, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
@@ -123,75 +121,42 @@ get_tickers(TickerFiles) ->
 			[_Head | Records] = erfc_4180:parse_file(File, []),
 			Records 
 		end, TickerFiles),
-	% extract ticker symbol and company name + add hash of ticker symbol
-	lists:map(fun(Elem) -> 
+	lists:foldl(fun(Elem, Accum) ->
 				Ticker = element(1, Elem),
-				CompanyName = element(2, Elem), 
-				{list_to_binary(Ticker), list_to_binary(CompanyName), 
-				 snp_helpers:hash_32bit(list_to_binary(Ticker))} 
-			end, CompaniesInfo).
+				CompanyName = element(2, Elem),
+				dict:store(list_to_binary(Ticker), list_to_binary(CompanyName), Accum)
+			end, dict:new(), CompaniesInfo).
 
 
-find_matches(WordsDict, Tickers) ->
-  	TickerCheckFun = fun({Ticker, CompanyName, Hash}, MatchingList) ->
-					% check for ticker presense in article text
-					case dict:find(Hash, WordsDict) of
-						{ok, WordsList} -> 
-							% additional check if hash collision happened
-							lists:foldl(fun
-										    % accumulate {ticker, company_name} tuple on match
-											(Word, Accum) when Word =:= Ticker -> [{Word, CompanyName} | Accum];
-											(_Word, Accum) -> Accum
-										end,
-										MatchingList, WordsList);
-						error -> MatchingList
-					end
-				end,
-	
-	% iterate over all ticker symbols and try to find them in the passed word list
-	lists:foldl(TickerCheckFun, [], Tickers).
+find_known_tickers(TickersFromText, KnownTickersDict) ->
+	TickerCheckFun = fun(Ticker, MatchingTickers) ->
+						case dict:find(Ticker, KnownTickersDict) of
+							{ok, CompanyName} -> [{Ticker, CompanyName} | MatchingTickers];
+							error -> MatchingTickers
+						end
+					 end,
+	lists:foldl(TickerCheckFun, [], TickersFromText).
+
 
 
 %% --------------------------------------------------------------------
 %%% Unit tests
 %% --------------------------------------------------------------------
 
-				   
+
 -ifdef(TEST).
 
 get_tickers_test() ->
 	Tickers = get_tickers(["../priv/test/test1.csv", "../priv/test/test2.csv"]),
-    ?assertEqual([{<<"DDD">>, <<"3D Systems Corporation">>, 2334519064}, {<<"MMM">>, <<"3M Company">>, 2907585361}, 
-				  {<<"SVN">>, <<"7 Days Group Holdings Limited">>, 3128474594}, 
-				  {<<"XXX">>, <<"Xprerts Fund">>, 4182447552}, {<<"FFF">>, <<"Freq From Far Inc.">>, 2057392867}, 
-				  {<<"LWN">>, <<"Low Wan New Co.">>, 1860772198}],
-				 Tickers).
+	?assertEqual({ok, <<"3D Systems Corporation">>}, dict:find(<<"DDD">>, Tickers)),
+	?assertEqual({ok, <<"Low Wan New Co.">>}, dict:find(<<"LWN">>, Tickers)),
+	?assertEqual({ok, <<"Freq From Far Inc.">>}, dict:find(<<"FFF">>, Tickers)).
 
-find_matches_test() ->
-	WordsDict = dict:from_list([{823394921, [<<"pat2">>]}, {4182447552, [<<"XXX">>]}, {123, [<<"aaa">>]}]),
-	Tickers = [{<<"DDD">>, <<"c1">>, 2334519064}, 
-				  {<<"SVN">>, <<"c2">>, 3128474594}, 
-				  {<<"XXX">>, <<"c3">>, 4182447552}, 
-				  {<<"LWN">>, <<"c4">>, 1860772198}],
-	?assertEqual([{<<"XXX">>, <<"c3">>}], find_matches(WordsDict, Tickers)).
-
-find_few_matches_test() ->
-	WordsDict = dict:from_list([{823394921, [<<"pat2">>]}, {4182447552, [<<"XXX">>]}, {123, [<<"aaa">>]}, {1860772198, [<<"LWN">>]}]),
-	Tickers = [{<<"DDD">>, <<"c1">>, 2334519064}, 
-				  {<<"SVN">>, <<"c2">>, 3128474594}, 
-				  {<<"XXX">>, <<"c3">>, 4182447552}, 
-				  {<<"LWN">>, <<"c4">>, 1860772198}],
-	Matches = find_matches(WordsDict, Tickers),
-	?assertEqual(2, length(Matches)),
-	?assert(lists:member({<<"XXX">>, <<"c3">>}, Matches)),
-	?assert(lists:member({<<"LWN">>, <<"c4">>}, Matches)).
-
-find_matches_hash_collision_test() ->
-	WordsDict = dict:from_list([{823394921, [<<"pat2">>]}, {4182447552, [<<"pat3">>, <<"XXX">>]}, {123, [<<"aaa">>]}]),
-	Tickers = [{<<"DDD">>, <<"c1">>, 2334519064}, 
-				  {<<"SVN">>, <<"c2">>, 3128474594}, 
-				  {<<"XXX">>, <<"c3">>, 4182447552}, 
-				  {<<"LWN">>, <<"c4">>, 1860772198}],
-	?assertEqual([{<<"XXX">>, <<"c3">>}], find_matches(WordsDict, Tickers)).
+find_known_tickers_test() ->
+	TickersDict = dict:from_list([{<<"SVN">>, <<"company 1">>}, {<<"XXX">>, <<"company 2">>}, {<<"YYY">>, <<"company 3">>}]),
+	TickersFromText = [<<"DDD">>, <<"XXX">>],
+	KnownTickers = find_known_tickers(TickersFromText, TickersDict),
+	?assertEqual(1, length(KnownTickers)),
+	?assert(lists:member({<<"XXX">>, <<"company 2">>}, KnownTickers)).
 
 -endif.

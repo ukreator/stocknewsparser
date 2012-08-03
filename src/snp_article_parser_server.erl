@@ -132,57 +132,22 @@ process_url(State) ->
 		httpc:request(get, {Url, []}, [], []),
 	?INFO("Got article body of length ~p for Url ~p", [length(Body), Url]),
 	
-	WordsDict = process_article_body(Body),
-	%?INFO("Word dict: ", [WordsDict]),
-	Matches = snp_ticker_matcher_server:find_match(WordsDict),
-	FinalObjects = matches_to_db_objects(Matches, RssItem),
+	Tickers = extract_yahoo_tickers(Body),
+	KnownTickers = snp_ticker_matcher_server:find_known_tickers(Tickers),
+	FinalObjects = matches_to_db_objects(KnownTickers, RssItem),
 	lists:foreach(fun(Obj) -> snp_db_saver:add_news(Obj) end, FinalObjects),
 	ok.
 
 
-process_article_body(Body) ->
-	Tokens = mochiweb_html:tokens(Body),
-	Text = tokens_to_text(Tokens),
-	Words = text_to_words(Text),
-	words_to_dict(Words).
-
-
-tokens_to_text(Tokens) ->
-	% text order is inversed, but it doesn't matter for us
-	ConcatFun = fun(X, Text) -> [element(2, X) | Text] end,
-	% TODO: skip JS blocks
-	FilterFun = fun({data, _, false}) -> true;
-				   (_OtherTokens)     -> false 
-				end,
-	lists:foldl(ConcatFun, [], lists:filter(FilterFun, Tokens)).
-
-
-text_to_words(Text) ->
-	Pattern = lists:map(fun(El) -> <<El>> end, ",.<>:;\"\\/$%#*&()=+?!'\r\n "), 
-	SplittingFun = fun(Elem) -> binary:split(Elem, Pattern, [global, trim]) end,	
-	lists:foldl(fun(Elem, Accum) -> 
-						Words = SplittingFun(Elem),
-						% skip empty words and collect all others
-						lists:foldl(fun(<<>>, A) -> A; (E, A) -> [E | A] end, Accum, Words)
-				end, 
-				[], Text).
-
-
-%% transforms to dict of words with keys as 32 bit hash
-words_to_dict(Words) ->
-	HashingAndFilteringFun = fun(Word, Dict) -> 
-									Hash = snp_helpers:hash_32bit(Word),
-									% skip if current word is already in the dict
-									AlreadyExists = case dict:find(Hash, Dict) of
-														{ok, WordList} -> lists:member(Word, WordList);
-														error -> false
-													end,
-									case AlreadyExists of 
-										false -> dict:append(Hash, Word, Dict);
-										true -> Dict
-									end
-							end,
-	lists:foldl(HashingAndFilteringFun, dict:new(), Words).
+%% This function is Yahoo-finance specific and is looking for RELATED QUOTES section
+%% returns [binary()]
+extract_yahoo_tickers(Body) ->
+	{ok, MP} = re:compile("<a href=\"/q.s=\\w+\">(\\w+)<"),
+	Result = re:run(Body, MP, [global, {capture, [1], binary}]),
+	case Result of
+		nomatch -> [];
+		{match, Captured} -> lists:map(fun([Elem]) -> Elem end, Captured)
+	end.
 
 
 matches_to_db_objects(Matches, RssItem) ->
@@ -200,24 +165,16 @@ matches_to_db_objects(Matches, RssItem) ->
 				   
 -ifdef(TEST).
 
-text_to_words_test() ->
-	Text = [<<"PAT1">>, <<"pat2">>, <<"t;11 12, dd 33/44 (aaa&90)">>],
-    ?assertEqual(lists:reverse([<<"PAT1">>, <<"pat2">>, <<"t">>, <<"11">>, <<"12">>, <<"dd">>, <<"33">>, <<"44">>, <<"aaa">>, <<"90">>]), 
-				 text_to_words(Text)).
-
-words_to_dict_test() ->
-	Words = [<<"PAT1">>, <<"pat2">>],
-	% pay attention on value type, it's list
-	Dict = dict:from_list([{1534248240, [<<"PAT1">>]}, {823394921, [<<"pat2">>]}]),
-	Result = words_to_dict(Words),
-	?assertEqual(Dict, Result).
-
-words_to_dict_repeated_vals_test() ->
-	Words = [<<"PAT1">>, <<"pat2">>, <<"PAT1">>],
-	% pay attention on value type, it's list
-	Dict = dict:from_list([{1534248240, [<<"PAT1">>]}, {823394921, [<<"pat2">>]}]),
-	Result = words_to_dict(Words),
-	?assertEqual(Dict, Result).
+extract_yahoo_tickers_test() ->
+	Body = "blabla
+<a href=\"/q?s=es\">ES</a></span></td><td><span class=\"streaming-datum\" 
+id=\"yfs_l84_es\">1.65</span></td><td><span class=\"streaming-datum yfi-price-change-red\">-0.01</span></td></tr>
+<tr class=\"yui3-\"><td colspan=\"3\"><div><a href=\"/q?s=es\">
+<img src=\"http://ichart.finance.yahoo.com/t?s=es&lang=en-US&region=US\"  ></a><<a href=\"/q?s=zaza\">ZAZA</a></span></td><td>",
+	Tickers = extract_yahoo_tickers(Body),
+	?assertEqual(2, length(Tickers)),
+	?assert(lists:member(<<"ES">>, Tickers)),
+	?assert(lists:member(<<"ZAZA">>, Tickers)).
 
 
 -endif.
