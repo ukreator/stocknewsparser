@@ -54,7 +54,6 @@ create(Url, RepeatTime, Index) ->
 
 %% RepeatTime is passed in seconds
 init([Url, RepeatTime, Index]) ->
-	?INFO("Starting RSS download server", []),
 	CurTime = erlang:now(),
 	AdjustedSeed = setelement(2, CurTime, element(2, CurTime) + Index),
 	random:seed(AdjustedSeed),
@@ -75,7 +74,6 @@ handle_cast(_Msg, State) ->
 
 handle_info({rss_update}, State) ->
 	NewState = process_rss(State),
-	?INFO("New state: ~p", [NewState]),
 	erlang:send_after(NewState#state.repeat_time, self(), {rss_update}),
 	{noreply, NewState};
 
@@ -104,8 +102,6 @@ process_rss(State) ->
 	?INFO("Request headers: ~p", [RequestHeaders]),
 	{ok, {{_Version, ResponseCode, _ReasonPhrase}, Headers, Body}} = 
 		httpc:request(get, {Url, RequestHeaders}, [], []),
-	
-	?INFO("Response headers: ~p", [Headers]),
 	
 	case ResponseCode of
 		200 ->
