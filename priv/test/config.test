@@ -1,0 +1,3 @@
+{option1, "value"}.
+{option2, ["val1", "val2"]}.
+{riak_host, "some_redefined_value"}.

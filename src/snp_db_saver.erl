@@ -45,7 +45,7 @@ add_news(NewsObj) ->
 %% Server functions
 %% ====================================================================
 
-
+% TODO: check for record presence before adding it to the DB 
 
 %% --------------------------------------------------------------------
 %% Function: init/1
@@ -56,9 +56,9 @@ add_news(NewsObj) ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-	{ok, RiakHost} = application:get_env(stocknewsparser, riak_host),
-	{ok, RiakPort} = application:get_env(stocknewsparser, riak_port),
-	{ok, RiakBucketName} = application:get_env(stocknewsparser, riak_bucket_name),
+	RiakHost = snp_conf:get_val(riak_host),
+	RiakPort = snp_conf:get_val(riak_port),
+	RiakBucketName = snp_conf:get_val(riak_bucket_name),
 	?INFO("Starting DB backend helper server. Connecting to Riak at host ~p and port ~p", [RiakHost, RiakPort]),
 	{ok, RiakcPid} = riakc_pb_socket:start_link(RiakHost, RiakPort),
 	?INFO("Successfully connected to Riak. Pid is ~p", [RiakcPid]),

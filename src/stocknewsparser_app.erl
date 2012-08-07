@@ -25,8 +25,9 @@
 
 start(_StartType, _StartArgs) ->
 	?INFO("Starting stocknewsparser application", []),
-	{ok, FeedAddresses} = application:get_env(stocknewsparser, rss_feed_addresses),
-	{ok, RssFetchInterval} = application:get_env(stocknewsparser, rss_fetch_interval),
+	FeedAddresses = snp_conf:get_val(rss_feed_addresses),
+	RssFetchInterval = snp_conf:get_val(rss_fetch_interval),
+	
     Res = snp_sup:start_link(),
 	case Res of
 		{ok, _Pid} -> start_children(FeedAddresses, RssFetchInterval);
@@ -58,3 +59,4 @@ start_child(Url, Index, RssFetchInterval) ->
 		{error, Reason} -> ?ERROR("Failed to start child worker process ~p", [Reason]), ok;
 		_Other -> ok
 	end.
+

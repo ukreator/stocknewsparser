@@ -53,6 +53,9 @@ create(Url, RepeatTime, Index) ->
 %% ====================================================================
 
 %% RepeatTime is passed in seconds
+
+% TODO: start time should be smaller than recheck time
+
 init([Url, RepeatTime, Index]) ->
 	CurTime = erlang:now(),
 	AdjustedSeed = setelement(2, CurTime, element(2, CurTime) + Index),

@@ -53,7 +53,7 @@ find_known_tickers(ExtractedTickers) ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-	{ok, TickerFiles} = application:get_env(stocknewsparser, ticker_symbol_files),
+	TickerFiles = snp_conf:get_val(ticker_symbol_files),
 	TickerDict = get_tickers(TickerFiles),
     {ok, #state{ticker_dict=TickerDict}}.
 

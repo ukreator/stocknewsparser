@@ -15,6 +15,10 @@ How to run:
 
     ./rel/stocknewsparser/bin/stocknewsparser console
 
+or, to get full list of starting options:
+
+    ./rel/stocknewsparser/bin/stocknewsparser
+
 
 Run unit tests:
 --------------
@@ -27,3 +31,5 @@ Configuration
 --------------
 
 Config file is located at rel/files/sys.config
+
+
