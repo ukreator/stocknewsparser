@@ -58,7 +58,7 @@ add_news(NewsObj) ->
 init([]) ->
 	RiakHost = snp_conf:get_val(riak_host),
 	RiakPort = snp_conf:get_val(riak_port),
-	RiakBucketName = snp_conf:get_val(riak_bucket_name),
+	RiakBucketName = list_to_binary(snp_conf:get_val(riak_bucket_name)),
 	?INFO("Starting DB backend helper server. Connecting to Riak at host ~p and port ~p", [RiakHost, RiakPort]),
 	{ok, RiakcPid} = riakc_pb_socket:start_link(RiakHost, RiakPort),
 	?INFO("Successfully connected to Riak. Pid is ~p", [RiakcPid]),
@@ -75,10 +75,15 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({create_or_update, Data}, _From, State) ->
-	?INFO("Adding new object to Riak DB: ~p", [Data]),
 	% let Riak assign key to our data:
 	Obj = riakc_obj:new(State#state.bucket_name, undefined, Data),
-	{Reply, _} = riakc_pb_socket:put(State#state.db, Obj),
+	Reply = case riakc_pb_socket:put(State#state.db, Obj) of
+		{ok, Key} -> ?INFO("Added new object to Riak DB bucket ~p with key ~p: ~p", 
+						   [State#state.bucket_name, Key, Data]),
+					 ok;
+		Other -> ?INFO("Failed to write data to Riak: ~p", [Other]),
+				 error
+	end,
 	{reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
