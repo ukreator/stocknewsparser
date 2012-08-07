@@ -8,7 +8,6 @@
 -module(snp_rss_parse).
 
 
-% TODO: cleanup this file
 
 %%
 %% Include files
@@ -18,10 +17,14 @@
 -include_lib("xmerl/include/xmerl.hrl").
 -include("snp_logging.hrl").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 %%
 %% Exported Functions
 %%
--export([compare_feed_items/2, get_item_time/1, get_feed_items/1, is_rss2_feed/1, get_items/1]).
+-export([get_items/1]).
 
 %%
 %% API Functions
@@ -34,6 +37,11 @@ get_items(XmlBody) ->
 		false -> {error, not_rss2_document};
 		true  -> {ok, parse_doc(Document)}
 	end.
+
+
+%%
+%% Local Functions
+%%
 
 parse_doc(Document) ->
 	XmlItems = get_feed_items(Document),
@@ -57,7 +65,12 @@ parse_doc(Document) ->
 				end, XmlItems).
 			  
 
-
+is_rss2_feed({Document, _Rest}) ->
+	is_rss2_feed(Document);
+is_rss2_feed(#xmlElement{name = rss, attributes = Attributes}) ->
+	lists:any(fun (#xmlAttribute{name = version, value = "2.0"}) -> true; (_) -> false end, Attributes);
+is_rss2_feed(_) ->
+	false.
 
 get_field(XmlItem, FieldName) ->
 	FieldVal = xmerl_xpath:string(FieldName ++ "[1]/text()", XmlItem),
@@ -67,66 +80,40 @@ get_field(XmlItem, FieldName) ->
 	end.
 
 
-			  
-compare_feed_items(OldItem, NewItem) ->
-	ItemComparators = lists:map(fun (Elem) -> 
-					   fun (X, Y) -> 
-								compare_xml_value(X, Y, Elem)
-					   end 
-			  end,
-			  ["guid", "title", "link"]),
-	Comparators = [fun is_the_same/2] ++ ItemComparators,
-	Result = compare_feed_items_helper(Comparators, OldItem, NewItem),
-	Result.
-  
-
-get_item_time(_ItemElement) ->
- % use httpd_util:convert_request_date/1 to convert a raw string into 
- % the Erlang form of date/time values: {{Year,Month,Date},{Hour,Min,Sec}}. 
- % Then, you can use the calendar:datetime_to_gregorian_seconds/1 function to convert 
- % this date/time value into a single integer. 
- % Your function should return the atom bad_date if the date doesn't get parsed correctly.
-	0.
-
-
 get_feed_items(RootElement) ->
 	xmerl_xpath:string("//item[link]", RootElement).
 
 
-%%
-is_rss2_feed({Document, _Rest}) ->
-	is_rss2_feed(Document);
-is_rss2_feed(#xmlElement{name = rss, attributes = Attributes}) ->
-	lists:any(fun (#xmlAttribute{name = version, value = "2.0"}) -> true; (_) -> false end, Attributes);
-is_rss2_feed(_) ->
-	false.
+%% --------------------------------------------------------------------
+%%% Unit tests
+%% --------------------------------------------------------------------
+
+				   
+-ifdef(TEST).
+
+-define(TestDirPath, "../priv/test").
 
 
-
-%%
-%% Local Functions
-%%
-
-compare_feed_items_helper([], _, _) -> different;
-compare_feed_items_helper([Comparator | Rest], OldItem, NewItem) ->
-	Result = Comparator(OldItem, NewItem),
-	case Result of
-		same -> same;
-		different -> compare_feed_items_helper(Rest, OldItem, NewItem)
-	end.
-
-is_the_same(Val1, Val2) ->
-	if Val1 =:= Val2 -> same;
-	   true -> different
-	end.
-
-compare_xml_value(OldItem, NewItem, ElemName) ->
-	XpathExpression = ElemName ++ "[1]/text()",
-	OldTextNode = xmerl_xpath:string(XpathExpression, OldItem),
-	NewTextNode = xmerl_xpath:string(XpathExpression, NewItem),
-	case {OldTextNode, NewTextNode} of 
-		{[#xmlText{value=OldVal}], [#xmlText{value=NewVal}]} -> is_the_same(OldVal, NewVal);
-		{_, _} -> different
-	end.
+is_rss2_feed_test_() ->
+	{
+	 setup,
+	 fun is_rss2_feed_start/0,
+	 fun ({Rss2Content, Rss1Content, NonRssXml}) -> [
+		?_assertNot(is_rss2_feed({test_not_a_doc, []})),
+	 	?_assert(is_rss2_feed(Rss2Content)),
+		?_assertNot(is_rss2_feed(Rss1Content)),
+		?_assertNot(is_rss2_feed(NonRssXml))
+	 ] end}.
 
 
+is_rss2_feed_start() ->
+	Rss2Content = xmerl_scan:file(testfile("test_rss2_feed.xml")),
+	Rss1Content = xmerl_scan:file(testfile("test_rss1_feed.xml")),
+	NonRssXml = xmerl_scan:file(testfile("non_rss.xml")),
+	{Rss2Content, Rss1Content, NonRssXml}.
+
+% helper function
+testfile(Path) ->
+	filename:join([?TestDirPath, Path]).
+
+-endif.
