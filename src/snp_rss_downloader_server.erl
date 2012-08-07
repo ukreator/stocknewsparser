@@ -102,7 +102,6 @@ process_rss(State) ->
 	EtagHeaders = get_etag_header(State),
 	LastModifiedHeaders = get_last_modified_header(State),
 	RequestHeaders = EtagHeaders ++ LastModifiedHeaders,
-	?INFO("Request headers: ~p", [RequestHeaders]),
 	{ok, {{_Version, ResponseCode, _ReasonPhrase}, Headers, Body}} = 
 		httpc:request(get, {Url, RequestHeaders}, [], []),
 	
