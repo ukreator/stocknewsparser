@@ -1,0 +1,68 @@
+# Maintainer: Dmitry Sobinov <sobinov@crystalnix.com>
+# Contributor: Dmitry Sobinov <sobinov@crystalnix.com>
+pkgname=stocknewsparser-git
+pkgver=20120808
+pkgrel=1
+pkgdesc='A standalone daemon application fetching RSS feeds and analyzing articles for tickers references'
+arch=('i686' 'x86_64')
+license=('APACHE')
+url='https://github.com/ukreator/stocknewsparser/'
+depends('riak')
+makedepends=('erlang' 'git' 'rebar')
+provides('stocknewsparser')
+
+
+_gitroot="git://github.com/ukreator/stocknewsparser.git"
+_gitname="stocknewsparser"
+_pkgname="stocknewsparser"
+
+build() {
+    cd "$srcdir"
+
+    msg "Fetching git repo data..." 
+
+    if [ -d $_gitname ]; then
+        cd $_gitname && git pull origin
+    else
+        git clone $_gitroot $_gitname
+    fi
+
+    msg "Building stocknewsparser..."
+
+    rm -rf "$srcdir/$_gitname-build"
+    git clone "$srcdir/$_gitname" "$srcdir/$_gitname-build"
+    cd "$srcdir/$_gitname-build"
+    rebar compile generate
+
+    cd rel/$_pkgname
+
+
+    # todo: cp helper files from ${srcdir}
+
+
+    install -d ${pkgdir}/opt/$_pkgname
+
+    msg 'Packing...'
+    cp -r ./* ${pkgdir}/opt/$_pkgname
+
+    chmod -R 755 ${pkgdir}/opt/$_pkgname/bin
+
+    msg 'ArchLinux integration...'
+
+#  install -d ${pkgdir}/var/log
+#  ln -s /opt/riak/log ${pkgdir}/var/log/riak
+#  install -d ${pkgdir}/etc/rc.d
+#  ln -s /opt/riak/etc ${pkgdir}/etc/riak
+#  install -d ${pkgdir}/usr/share/doc/
+#  cp -r ${srcdir}/riak-${pkgver}/doc/man ${pkgdir}/usr/share/
+#  cp -r ${srcdir}/riak-${pkgver}/doc ${pkgdir}/usr/share/doc/riak
+#  rm -r ${pkgdir}/usr/share/doc/riak/man
+#
+#  # install launch files
+#  install -d ${pkgdir}/usr/bin/
+#  install ${srcdir}/riak ${pkgdir}/usr/bin
+#  install ${srcdir}/riak-admin ${pkgdir}/usr/bin
+#
+#  # install daemon
+#  install ${srcdir}/riak.rc ${pkgdir}/etc/rc.d/riak
+}
