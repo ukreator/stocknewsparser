@@ -7,10 +7,15 @@ pkgdesc='A standalone daemon application fetching RSS feeds and analyzing articl
 arch=('i686' 'x86_64')
 license=('APACHE')
 url='https://github.com/ukreator/stocknewsparser/'
-depends('riak')
+depends=('riak')
 makedepends=('erlang' 'git' 'rebar')
-provides('stocknewsparser')
+provides=('stocknewsparser')
+install='stocknewsparser.install'
+source=('stocknewsparser.rc'
+        'stocknewsparser.sh')
 
+md5sums=('5f4d32d44b87872cc12613607e3a1ca5'
+         '80a3314a64e6739cabf4c24c79efebf4')
 
 _gitroot="git://github.com/ukreator/stocknewsparser.git"
 _gitname="stocknewsparser"
@@ -32,13 +37,10 @@ build() {
     rm -rf "$srcdir/$_gitname-build"
     git clone "$srcdir/$_gitname" "$srcdir/$_gitname-build"
     cd "$srcdir/$_gitname-build"
+    rebar get-deps
     rebar compile generate
 
     cd rel/$_pkgname
-
-
-    # todo: cp helper files from ${srcdir}
-
 
     install -d ${pkgdir}/opt/$_pkgname
 
@@ -49,20 +51,20 @@ build() {
 
     msg 'ArchLinux integration...'
 
-#  install -d ${pkgdir}/var/log
-#  ln -s /opt/riak/log ${pkgdir}/var/log/riak
-#  install -d ${pkgdir}/etc/rc.d
-#  ln -s /opt/riak/etc ${pkgdir}/etc/riak
-#  install -d ${pkgdir}/usr/share/doc/
-#  cp -r ${srcdir}/riak-${pkgver}/doc/man ${pkgdir}/usr/share/
-#  cp -r ${srcdir}/riak-${pkgver}/doc ${pkgdir}/usr/share/doc/riak
-#  rm -r ${pkgdir}/usr/share/doc/riak/man
-#
-#  # install launch files
-#  install -d ${pkgdir}/usr/bin/
-#  install ${srcdir}/riak ${pkgdir}/usr/bin
-#  install ${srcdir}/riak-admin ${pkgdir}/usr/bin
-#
-#  # install daemon
-#  install ${srcdir}/riak.rc ${pkgdir}/etc/rc.d/riak
+
+    install -d ${pkgdir}/var/log
+    ln -s /opt/$_pkgname/log ${pkgdir}/var/log/$_pkgname
+    install -d ${pkgdir}/etc/rc.d
+    ln -s /opt/$_pkgname/etc ${pkgdir}/etc/$_pkgname
+    #install -d ${pkgdir}/usr/share/doc/
+    #cp -r ${srcdir}/$_pkgname-${pkgver}/doc/man ${pkgdir}/usr/share/
+    #cp -r ${srcdir}/$_pkgname-${pkgver}/doc ${pkgdir}/usr/share/doc/$_pkgname
+    #rm -r ${pkgdir}/usr/share/doc/$_pkgname/man
+
+    # install launch files
+    install -d ${pkgdir}/usr/bin/
+    install ${srcdir}/$_pkgname.sh ${pkgdir}/usr/bin/$_pkgname
+
+    # install daemon
+    install  ${srcdir}/$_pkgname.rc ${pkgdir}/etc/rc.d/$_pkgname
 }
